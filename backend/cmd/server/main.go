@@ -2,10 +2,21 @@ package main
 
 import (
 	"log"
-	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
+	r := gin.Default()
+
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status": "ok",
+		})
+	})
+
 	log.Println("Server running on :8080")
-	http.ListenAndServe(":8080", nil)
+	if err := r.Run(":8080"); err != nil {
+		log.Fatal(err)
+	}
 }
