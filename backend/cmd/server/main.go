@@ -4,9 +4,11 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
+	"github.com/medicophy/guest-house-website/backend/internal/database"
 )
 
 func main() {
+	database.Connect()
 	r := gin.Default()
 
 	r.GET("/health", func(c *gin.Context) {
