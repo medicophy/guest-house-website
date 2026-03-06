@@ -1,8 +1,13 @@
 import express from 'express';
+import cors from 'cors';
 import { Client } from 'pg';
 
 const app = express();
-const port = 3000;
+
+app.use(cors());   // MUST be before routes
+app.use(express.json());
+
+const port = 5000;
 
 const client = new Client({
   connectionString: process.env.DATABASE_URL || "postgres://postgres:159263@localhost:5432/guest_house_web?sslmode=disable"

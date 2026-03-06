@@ -1,28 +1,35 @@
 import React from 'react';
-import logo from './logo.svg';
 import './App.css';
 import Rooms from './Rooms';
 
 function App() {
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      {/* Navigation */}
+      <nav className="navbar">
+        <div className="nav-logo">Lavish Inn Guest House</div>
+        <ul className="nav-links">
+          <li>Home</li>
+          <li>Rooms</li>
+          <li>Contact</li>
+        </ul>
+      </nav>
 
-      {/* Render Rooms component */}
-      <Rooms />
+      {/* Hero Section */}
+      <section className="hero">
+        <h1>Welcome to Our Guest House</h1>
+        <p>Comfortable stays, beautiful views, and excellent service.</p>
+      </section>
+
+      {/* Rooms */}
+      <main>
+        <Rooms />
+      </main>
+
+      {/* Footer */}
+      <footer className="footer">
+        &copy; 2026 Guest House. All rights reserved.
+      </footer>
     </div>
   );
 }
