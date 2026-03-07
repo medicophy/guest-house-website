@@ -1,13 +1,13 @@
+// internal/config/config.go
 package config
 
 import (
-	"log"
 	"os"
 )
 
-func GetConfig() {
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		log.Fatal("DATABASE_URL not set")
+func GetEnv(key, fallback string) string {
+	if val, exists := os.LookupEnv(key); exists {
+		return val
 	}
+	return fallback
 }
