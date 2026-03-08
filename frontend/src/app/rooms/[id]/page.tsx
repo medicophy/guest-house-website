@@ -2,6 +2,7 @@ import { Room } from "@/types";
 import { Button } from "@/components/ui/button";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import BookingForm from "@/components/BookingForm";
 
 async function getRoom(id: string): Promise<Room | null> {
   try {
@@ -73,9 +74,10 @@ export default async function RoomDetails({ params }: { params: Promise<{ id: st
             </p>
           </div>
 
-          <Button size="lg" className="w-full h-16 text-xl font-bold rounded-xl shadow-lg hover:shadow-primary/20">
-            Confirm Booking
-          </Button>
+          {/* Corrected: The BookingForm contains its own trigger button */}
+          <div className="pt-4">
+            <BookingForm room={room} />
+          </div>          
         </div>
       </div>
     </main>

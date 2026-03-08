@@ -15,6 +15,17 @@ import (
 	_ "github.com/lib/pq"
 )
 
+type Booking struct {
+	ID         int     `json:"id"`
+	RoomID     int     `json:"room_id"`
+	GuestName  string  `json:"guest_name"`
+	GuestEmail string  `json:"guest_email"`
+	CheckIn    string  `json:"check_in"`  // Matches your 'check_in' column
+	CheckOut   string  `json:"check_out"` // Matches your 'check_out' column
+	TotalPrice float64 `json:"total_price"`
+	Status     string  `json:"status"`
+}
+
 var db *sql.DB
 
 func main() {
@@ -106,4 +117,26 @@ func getRoomByID(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(rm)
+}
+
+func createBooking(w http.ResponseWriter, r *http.Request) {
+	var b Booking
+	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Using your exact column names: check_in, check_out
+	query := `INSERT INTO bookings (room_id, guest_name, guest_email, check_in, check_out, total_price) 
+              VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, status`
+
+	err := db.QueryRow(query, b.RoomID, b.GuestName, b.GuestEmail, b.CheckIn, b.CheckOut, b.TotalPrice).Scan(&b.ID, &b.Status)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(b)
 }
