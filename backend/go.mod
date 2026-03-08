@@ -8,4 +8,4 @@ require (
 	github.com/lib/pq v1.11.2
 )
 
-require github.com/go-chi/cors v1.2.2 // indirect
+require github.com/go-chi/cors v1.2.2

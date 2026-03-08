@@ -56,6 +56,7 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 	r.Get("/api/rooms", getRooms)
+	r.Get("/api/rooms/{id}", getRoomByID)
 
 	// Set Port to 5000
 	port := "5000"
@@ -85,4 +86,24 @@ func getRooms(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(rooms)
+}
+func getRoomByID(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")               // chi uses "id" because we defined {id} in the route
+	fmt.Println("Fetching room with ID:", id) // Add this line to debug in your terminal
+	var rm Room
+
+	err := db.QueryRow("SELECT id, name, description, price_per_night, capacity, image_url, created_at FROM rooms WHERE id = $1", id).
+		Scan(&rm.ID, &rm.Name, &rm.Description, &rm.PricePerNight, &rm.Capacity, &rm.ImageURL, &rm.CreatedAt)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Room not found", http.StatusNotFound)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(rm)
 }
