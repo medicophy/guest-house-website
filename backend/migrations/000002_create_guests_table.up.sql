@@ -1,0 +1,7 @@
+CREATE TABLE guests (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    phone TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
