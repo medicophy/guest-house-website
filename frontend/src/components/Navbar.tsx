@@ -7,7 +7,7 @@ export default function Navbar() {
       <div className="container mx-auto flex h-16 items-center justify-between">
         <div className="flex items-center gap-6">
           <Link href="/" className="text-xl font-bold tracking-tight">
-            GUEST HOUSE
+            Resedential Inn
           </Link>
           <nav className="hidden md:flex gap-6 text-sm font-medium">
             <Link href="/" className="transition-colors hover:text-primary">

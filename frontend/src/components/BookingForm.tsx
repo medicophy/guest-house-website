@@ -11,6 +11,7 @@ import { format, differenceInDays } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
+import { useRouter } from "next/navigation";
 
 export default function BookingForm({ room }: { room: Room }) {
   const [loading, setLoading] = useState(false);
@@ -22,10 +23,10 @@ export default function BookingForm({ room }: { room: Room }) {
 
   const nights = date?.from && date?.to ? differenceInDays(date.to, date.from) : 0;
   const totalPrice = nights * room.price_per_night;
+  const router = useRouter();
   
   async function handleBooking(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    console.log("Submit button clicked!"); // Check if this shows in F12 console
   
     if (!date?.from || !date?.to) {
       alert("Please select a check-in and check-out date.");
@@ -44,8 +45,6 @@ export default function BookingForm({ room }: { room: Room }) {
       total_price: totalPrice,
     };
   
-    console.log("Sending data to Go:", bookingData);
-  
     try {
       const res = await fetch("http://localhost:5000/api/bookings", {
         method: "POST",
@@ -54,18 +53,19 @@ export default function BookingForm({ room }: { room: Room }) {
       });
   
       if (res.ok) {
-        const result = await res.json();
-        console.log("Success:", result);
-        alert("Booking Confirmed! ID: " + result.id);
         setOpen(false);
+        // Ensure this matches your EXACT folder name in src/app
+        router.push("/bookings/success"); 
+      } else if (res.status === 409) {
+        // This handles the overlap check we added in Go
+        alert("These dates are already booked. Please select different dates.");
       } else {
-        const errorText = await res.text();
-        console.error("Backend Error:", errorText);
-        alert("Error: " + errorText);
+        const errorData = await res.text();
+        alert(`Booking failed: ${errorData}`);
       }
     } catch (error) {
       console.error("Connection Error:", error);
-      alert("Could not connect to the Go server.");
+      alert("Could not connect to the Go server. Is it running?");
     } finally {
       setLoading(false);
     }
@@ -104,7 +104,17 @@ export default function BookingForm({ room }: { room: Room }) {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-                <Calendar initialFocus mode="range" selected={date} onSelect={setDate} numberOfMonths={2} />
+                {/* Added disabled prop to calendar to prevent 
+                  users from picking past dates 
+                */}
+                <Calendar 
+                  initialFocus 
+                  mode="range" 
+                  selected={date} 
+                  onSelect={setDate} 
+                  numberOfMonths={2}
+                  disabled={{ before: new Date() }} 
+                />
               </PopoverContent>
             </Popover>
           </div>

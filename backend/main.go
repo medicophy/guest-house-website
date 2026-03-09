@@ -67,6 +67,7 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
+	r.Get("/api/rooms/search", searchRooms)
 	r.Get("/api/rooms", getRooms)
 	r.Get("/api/rooms/{id}", getRoomByID)
 
@@ -78,6 +79,28 @@ func main() {
 
 	fmt.Printf("Server starting on port %s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, r))
+}
+
+func searchRooms(w http.ResponseWriter, r *http.Request) {
+	queryParam := r.URL.Query().Get("q")
+
+	// Search for rooms that match the name or description
+	rows, err := db.Query("SELECT id, name, description, price_per_night, image_url FROM rooms WHERE name ILIKE $1 OR description ILIKE $1", "%"+queryParam+"%")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var rooms []Room
+	for rows.Next() {
+		var rm Room
+		rows.Scan(&rm.ID, &rm.Name, &rm.Description, &rm.PricePerNight, &rm.ImageURL)
+		rooms = append(rooms, rm)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(rooms)
 }
 
 func getRooms(w http.ResponseWriter, r *http.Request) {
@@ -102,6 +125,7 @@ func getRooms(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(rooms)
 }
+
 func getRoomByID(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")               // chi uses "id" because we defined {id} in the route
 	fmt.Println("Fetching room with ID:", id) // Add this line to debug in your terminal
@@ -126,17 +150,41 @@ func getRoomByID(w http.ResponseWriter, r *http.Request) {
 func createBooking(w http.ResponseWriter, r *http.Request) {
 	var b Booking
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 
-	// Using your exact column names: check_in, check_out
+	// 1. Check for date overlaps
+	// Logic: A collision occurs if (ExistingCheckIn < NewCheckOut) AND (ExistingCheckOut > NewCheckIn)
+	var exists bool
+	checkQuery := `
+        SELECT EXISTS (
+            SELECT 1 FROM bookings 
+            WHERE room_id = $1 
+            AND status != 'cancelled'
+            AND check_in < $3 
+            AND check_out > $2
+        )`
+
+	err := db.QueryRow(checkQuery, b.RoomID, b.CheckIn, b.CheckOut).Scan(&exists)
+	if err != nil {
+		http.Error(w, "Database error during availability check", http.StatusInternalServerError)
+		return
+	}
+
+	if exists {
+		http.Error(w, "Room is already booked for these dates", http.StatusConflict)
+		return
+	}
+
+	// 2. Insert the booking if no overlap is found
 	query := `INSERT INTO bookings (room_id, guest_name, guest_email, check_in, check_out, total_price) 
               VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, status`
 
-	err := db.QueryRow(query, b.RoomID, b.GuestName, b.GuestEmail, b.CheckIn, b.CheckOut, b.TotalPrice).Scan(&b.ID, &b.Status)
+	// Use = here because err is already declared above
+	err = db.QueryRow(query, b.RoomID, b.GuestName, b.GuestEmail, b.CheckIn, b.CheckOut, b.TotalPrice).Scan(&b.ID, &b.Status)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to save booking: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
