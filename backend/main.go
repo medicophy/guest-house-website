@@ -66,9 +66,13 @@ func main() {
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK"))
 	})
+
 	r.Get("/api/rooms", getRooms)
 	r.Get("/api/rooms/{id}", getRoomByID)
 
+	r.Post("/api/bookings", createBooking)
+	r.Get("/api/bookings", getBookings)
+	r.Put("/api/bookings/{id}/status", updateBookingStatus)
 	// Set Port to 5000
 	port := "5000"
 
@@ -139,4 +143,47 @@ func createBooking(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(b)
+}
+
+func getBookings(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.Query("SELECT id, room_id, guest_name, guest_email, check_in, check_out, total_price, status FROM bookings ORDER BY created_at DESC")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var bookings []Booking
+	for rows.Next() {
+		var b Booking
+		if err := rows.Scan(&b.ID, &b.RoomID, &b.GuestName, &b.GuestEmail, &b.CheckIn, &b.CheckOut, &b.TotalPrice, &b.Status); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		bookings = append(bookings, b)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(bookings)
+}
+
+func updateBookingStatus(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var body struct {
+		Status string `json:"status"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	_, err := db.Exec("UPDATE bookings SET status = $1 WHERE id = $2", body.Status, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Status updated successfully"})
 }

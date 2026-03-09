@@ -22,11 +22,16 @@ export default function BookingForm({ room }: { room: Room }) {
 
   const nights = date?.from && date?.to ? differenceInDays(date.to, date.from) : 0;
   const totalPrice = nights * room.price_per_night;
-
+  
   async function handleBooking(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!date?.from || !date?.to) return alert("Please select dates");
-
+    console.log("Submit button clicked!"); // Check if this shows in F12 console
+  
+    if (!date?.from || !date?.to) {
+      alert("Please select a check-in and check-out date.");
+      return;
+    }
+  
     setLoading(true);
     const formData = new FormData(e.currentTarget);
     
@@ -38,25 +43,34 @@ export default function BookingForm({ room }: { room: Room }) {
       check_out: format(date.to, "yyyy-MM-dd"),
       total_price: totalPrice,
     };
-
+  
+    console.log("Sending data to Go:", bookingData);
+  
     try {
       const res = await fetch("http://localhost:5000/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(bookingData),
       });
-
+  
       if (res.ok) {
-        alert("Booking Confirmed!");
+        const result = await res.json();
+        console.log("Success:", result);
+        alert("Booking Confirmed! ID: " + result.id);
         setOpen(false);
+      } else {
+        const errorText = await res.text();
+        console.error("Backend Error:", errorText);
+        alert("Error: " + errorText);
       }
     } catch (error) {
-      alert("Error connecting to server.");
+      console.error("Connection Error:", error);
+      alert("Could not connect to the Go server.");
     } finally {
       setLoading(false);
     }
   }
-
+ 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>

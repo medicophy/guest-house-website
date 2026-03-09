@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import Link from "next/link";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,3 +33,10 @@ export default function RootLayout({
     </html>
   );
 }
+
+<nav className="flex gap-4 p-4 border-b">
+  <Link href="/" className="font-bold">Home</Link>
+  <Link href="/admin/bookings" className="text-muted-foreground hover:text-primary">
+    Admin Dashboard
+  </Link>
+</nav>
