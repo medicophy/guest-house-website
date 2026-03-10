@@ -10,7 +10,12 @@ import { cn } from "@/lib/utils";
 
 export default function ContactPage() {
   const [rating, setRating] = useState(0);
-
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // Add a simple "Sending" state or just a simulated success for now
+    alert("Message Sent! Our team in Islamabad will contact you shortly.");
+  };
+  
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
       {/* Header */}

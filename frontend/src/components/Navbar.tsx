@@ -2,41 +2,40 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, BedDouble, Home, PhoneCall } from "lucide-react";
+import { ShieldCheck, Menu } from "lucide-react";
 
 export default function Navbar() {
   return (
-    <nav className="bg-slate-900 text-white shadow-2xl sticky top-0 z-50">
-      <div className="container mx-auto px-6 h-20 flex items-center justify-between">
-        {/* Brand */}
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="bg-primary p-2 rounded-lg group-hover:rotate-12 transition-transform">
-            <Home className="w-6 h-6 text-white" />
+    <nav className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 px-6 py-4">
+      <div className="container mx-auto flex justify-between items-center">
+        {/* Logo Section */}
+        <Link href="/" className="group">
+          <div className="flex flex-col">
+            <span className="text-2xl font-black text-white tracking-tighter uppercase leading-none group-hover:text-primary transition-colors">
+              Residential <span className="italic text-primary group-hover:text-white transition-colors">Inn</span>
+            </span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mt-1">
+              High Impact Solutions
+            </span>
           </div>
-          <span className="text-2xl font-black tracking-tighter uppercase">Residential Inn</span>
         </Link>
 
-        {/* Links */}
-        <div className="hidden md:flex items-center gap-8 font-medium text-slate-300">
-          <Link href="/" className="hover:text-white transition-colors">Home</Link>
-          <Link href="/rooms" className="hover:text-white transition-colors">Rooms</Link>
-          <Link href="/about" className="hover:text-white transition-colors">About</Link>
-          <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
+        {/* Navigation Links */}
+        <div className="hidden md:flex items-center gap-10">
+          <Link href="/rooms" className="text-sm font-black text-slate-400 hover:text-white uppercase tracking-widest transition-colors">Rooms</Link>
+          <Link href="/about" className="text-sm font-black text-slate-400 hover:text-white uppercase tracking-widest transition-colors">About</Link>
+          <Link href="/contact" className="text-sm font-black text-slate-400 hover:text-white uppercase tracking-widest transition-colors">Contact</Link>
+          
+          {/* Subtle Admin Link */}
+          <Link href="/admin/login" className="flex items-center gap-2 text-[10px] font-black text-slate-600 hover:text-primary uppercase tracking-widest transition-colors border-l border-slate-800 pl-10">
+            <ShieldCheck className="w-3 h-3" />
+            Staff Only
+          </Link>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-4">
-          <Link href="/admin/bookings">
-            <Button variant="ghost" className="text-slate-300 hover:text-white hover:bg-slate-800 gap-2">
-              <LayoutDashboard className="w-4 h-4" />
-              Admin Portal
-            </Button>
-          </Link>
-          <Link href="/rooms">
-            <Button className="bg-white text-slate-900 hover:bg-slate-200 font-bold px-6 rounded-full">
-              Book Now
-            </Button>
-          </Link>
+        {/* Mobile Menu Icon */}
+        <div className="md:hidden">
+          <Menu className="text-white w-6 h-6" />
         </div>
       </div>
     </nav>

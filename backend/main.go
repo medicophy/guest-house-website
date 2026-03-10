@@ -12,10 +12,13 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/joho/godotenv"
-	_ "github.com/lib/pq"
+	_ "github.com/lib/pq" // Using alias or blank import as needed
 )
 
-// 1. Add these structs at the top with your other types
+// Using your existing types.
+// NOTE: Make sure 'Room' is available here. If it's in models.go in the same 'main' package,
+// this will work. If it's in a 'models' package, use models.Room.
+
 type Booking struct {
 	ID         int     `json:"id"`
 	RoomID     int     `json:"room_id"`
@@ -40,22 +43,13 @@ type Inquiry struct {
 	Message string `json:"message"`
 }
 
-type Review struct {
-	ID      int    `json:"id"`
-	User    string `json:"user"`
-	Rating  int    `json:"rating"`
-	Comment string `json:"comment"`
-}
-
 var db *sql.DB
 
 func main() {
-	// Load environment variables
 	if err := godotenv.Load("../.env"); err != nil {
 		log.Println("No .env file found, using system environment variables")
 	}
 
-	// Connect to PostgreSQL
 	dbURL := os.Getenv("DATABASE_URL")
 	var err error
 	db, err = sql.Open("postgres", dbURL)
@@ -64,54 +58,51 @@ func main() {
 	}
 	defer db.Close()
 
-	// Check connection
 	if err = db.Ping(); err != nil {
 		log.Fatal("Could not connect to database:", err)
 	}
 	fmt.Println("Connected to guest_house_web database")
 
-	// Initialize Router
 	r := chi.NewRouter()
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5500"},
+		AllowedOrigins:   []string{"http://localhost:3000", "http://localhost:5500"}, // Added 3000 for Next.js
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
-		MaxAge:           300,
 	}))
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
 	// API Routes
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK"))
-	})
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("OK")) })
 
-	r.Get("/api/rooms/search", searchRooms)
+	// Room Management
 	r.Get("/api/rooms", getAvailableRooms)
+	r.Post("/api/rooms", createRoom)
+	r.Get("/api/rooms/search", searchRooms)
 	r.Get("/api/rooms/{id}", getRoomByID)
+	r.Put("/api/rooms/{id}", updateRoom)
+	r.Delete("/api/rooms/{id}", deleteRoom)
 
+	// Bookings
 	r.Post("/api/bookings", createBooking)
 	r.Get("/api/bookings", getBookings)
 	r.Put("/api/bookings/{id}/status", updateBookingStatus)
 
+	// Admin
 	r.Get("/api/admin/stats", getDashboardStats)
-
 	r.Post("/api/contact", handleInquiry)
 
-	// Set Port to 5000
 	port := "5000"
-
 	fmt.Printf("Server starting on port %s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, r))
 }
 
+// --- Handler Functions ---
+
 func searchRooms(w http.ResponseWriter, r *http.Request) {
 	queryParam := r.URL.Query().Get("q")
-
-	// Search for rooms that match the name or description
-	rows, err := db.Query("SELECT id, name, description, price_per_night, image_url FROM rooms WHERE name ILIKE $1 OR description ILIKE $1", "%"+queryParam+"%")
+	rows, err := db.Query("SELECT id, name, description, price_per_night, capacity, image_url FROM rooms WHERE name ILIKE $1 OR description ILIKE $1", "%"+queryParam+"%")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -121,37 +112,14 @@ func searchRooms(w http.ResponseWriter, r *http.Request) {
 	var rooms []Room
 	for rows.Next() {
 		var rm Room
-		rows.Scan(&rm.ID, &rm.Name, &rm.Description, &rm.PricePerNight, &rm.ImageURL)
+		rows.Scan(&rm.ID, &rm.Name, &rm.Description, &rm.PricePerNight, &rm.Capacity, &rm.ImageURL)
 		rooms = append(rooms, rm)
 	}
-
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(rooms)
 }
 
 func getAvailableRooms(w http.ResponseWriter, r *http.Request) {
-	checkIn := r.URL.Query().Get("check_in")
-	checkOut := r.URL.Query().Get("check_out")
-
-	var rows *sql.Rows
-	var err error
-
-	if checkIn != "" && checkOut != "" {
-		// This query finds rooms that do NOT have an overlapping confirmed booking
-		query := `
-			SELECT id, name, description, price_per_night, image_url 
-			FROM rooms 
-			WHERE id NOT IN (
-				SELECT room_id FROM bookings 
-				WHERE status != 'cancelled' 
-				AND check_in < $2 
-				AND check_out > $1
-			)`
-		rows, err = db.Query(query, checkIn, checkOut)
-	} else {
-		rows, err = db.Query("SELECT id, name, description, price_per_night, image_url FROM rooms")
-	}
-
+	rows, err := db.Query("SELECT id, name, description, price_per_night, capacity, image_url FROM rooms")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -161,33 +129,68 @@ func getAvailableRooms(w http.ResponseWriter, r *http.Request) {
 	var rooms []Room
 	for rows.Next() {
 		var rm Room
-		rows.Scan(&rm.ID, &rm.Name, &rm.Description, &rm.PricePerNight, &rm.ImageURL)
+		rows.Scan(&rm.ID, &rm.Name, &rm.Description, &rm.PricePerNight, &rm.Capacity, &rm.ImageURL)
 		rooms = append(rooms, rm)
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(rooms)
 }
 
 func getRoomByID(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")               // chi uses "id" because we defined {id} in the route
-	fmt.Println("Fetching room with ID:", id) // Add this line to debug in your terminal
+	id := chi.URLParam(r, "id")
 	var rm Room
-
-	err := db.QueryRow("SELECT id, name, description, price_per_night, capacity, image_url, created_at FROM rooms WHERE id = $1", id).
-		Scan(&rm.ID, &rm.Name, &rm.Description, &rm.PricePerNight, &rm.Capacity, &rm.ImageURL, &rm.CreatedAt)
-
+	query := "SELECT id, name, description, price_per_night, capacity, image_url FROM rooms WHERE id = $1"
+	err := db.QueryRow(query, id).Scan(&rm.ID, &rm.Name, &rm.Description, &rm.PricePerNight, &rm.Capacity, &rm.ImageURL)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			http.Error(w, "Room not found", http.StatusNotFound)
-		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+		http.Error(w, "Room not found", http.StatusNotFound)
+		return
+	}
+	json.NewEncoder(w).Encode(rm)
+}
+
+func createRoom(w http.ResponseWriter, r *http.Request) {
+	var room Room
+	if err := json.NewDecoder(r.Body).Decode(&room); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(rm)
+	query := `INSERT INTO rooms (name, description, price_per_night, capacity, image_url) 
+              VALUES ($1, $2, $3, $4, $5) RETURNING id`
+	err := db.QueryRow(query, room.Name, room.Description, room.PricePerNight, room.Capacity, room.ImageURL).Scan(&room.ID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(room)
+}
+
+func updateRoom(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var room Room
+	if err := json.NewDecoder(r.Body).Decode(&room); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	query := `UPDATE rooms SET name=$1, description=$2, price_per_night=$3, capacity=$4, image_url=$5 WHERE id=$6`
+	_, err := db.Exec(query, room.Name, room.Description, room.PricePerNight, room.Capacity, room.ImageURL, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func deleteRoom(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	_, err := db.Exec("DELETE FROM rooms WHERE id = $1", id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func createBooking(w http.ResponseWriter, r *http.Request) {
