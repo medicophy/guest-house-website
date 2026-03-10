@@ -15,15 +15,36 @@ import (
 	_ "github.com/lib/pq"
 )
 
+// 1. Add these structs at the top with your other types
 type Booking struct {
 	ID         int     `json:"id"`
 	RoomID     int     `json:"room_id"`
 	GuestName  string  `json:"guest_name"`
 	GuestEmail string  `json:"guest_email"`
-	CheckIn    string  `json:"check_in"`  // Matches your 'check_in' column
-	CheckOut   string  `json:"check_out"` // Matches your 'check_out' column
+	CheckIn    string  `json:"check_in"`
+	CheckOut   string  `json:"check_out"`
 	TotalPrice float64 `json:"total_price"`
 	Status     string  `json:"status"`
+}
+
+type DashboardStats struct {
+	TotalRevenue   float64 `json:"total_revenue"`
+	TotalBookings  int     `json:"total_bookings"`
+	ActiveBookings int     `json:"active_bookings"`
+}
+
+type Inquiry struct {
+	ID      int    `json:"id"`
+	Name    string `json:"name"`
+	Email   string `json:"email"`
+	Message string `json:"message"`
+}
+
+type Review struct {
+	ID      int    `json:"id"`
+	User    string `json:"user"`
+	Rating  int    `json:"rating"`
+	Comment string `json:"comment"`
 }
 
 var db *sql.DB
@@ -68,12 +89,17 @@ func main() {
 	})
 
 	r.Get("/api/rooms/search", searchRooms)
-	r.Get("/api/rooms", getRooms)
+	r.Get("/api/rooms", getAvailableRooms)
 	r.Get("/api/rooms/{id}", getRoomByID)
 
 	r.Post("/api/bookings", createBooking)
 	r.Get("/api/bookings", getBookings)
 	r.Put("/api/bookings/{id}/status", updateBookingStatus)
+
+	r.Get("/api/admin/stats", getDashboardStats)
+
+	r.Post("/api/contact", handleInquiry)
+
 	// Set Port to 5000
 	port := "5000"
 
@@ -103,8 +129,29 @@ func searchRooms(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(rooms)
 }
 
-func getRooms(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query("SELECT id, name, description, price_per_night, capacity, image_url, created_at FROM rooms")
+func getAvailableRooms(w http.ResponseWriter, r *http.Request) {
+	checkIn := r.URL.Query().Get("check_in")
+	checkOut := r.URL.Query().Get("check_out")
+
+	var rows *sql.Rows
+	var err error
+
+	if checkIn != "" && checkOut != "" {
+		// This query finds rooms that do NOT have an overlapping confirmed booking
+		query := `
+			SELECT id, name, description, price_per_night, image_url 
+			FROM rooms 
+			WHERE id NOT IN (
+				SELECT room_id FROM bookings 
+				WHERE status != 'cancelled' 
+				AND check_in < $2 
+				AND check_out > $1
+			)`
+		rows, err = db.Query(query, checkIn, checkOut)
+	} else {
+		rows, err = db.Query("SELECT id, name, description, price_per_night, image_url FROM rooms")
+	}
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -114,11 +161,7 @@ func getRooms(w http.ResponseWriter, r *http.Request) {
 	var rooms []Room
 	for rows.Next() {
 		var rm Room
-		err := rows.Scan(&rm.ID, &rm.Name, &rm.Description, &rm.PricePerNight, &rm.Capacity, &rm.ImageURL, &rm.CreatedAt)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		rows.Scan(&rm.ID, &rm.Name, &rm.Description, &rm.PricePerNight, &rm.ImageURL)
 		rooms = append(rooms, rm)
 	}
 
@@ -234,4 +277,35 @@ func updateBookingStatus(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Status updated successfully"})
+}
+
+func getDashboardStats(w http.ResponseWriter, r *http.Request) {
+	var stats DashboardStats
+
+	// This query calculates revenue and counts in one go
+	query := `
+		SELECT 
+			COALESCE(SUM(total_price), 0), 
+			COUNT(*),
+			COUNT(*) FILTER (WHERE status = 'confirmed')
+		FROM bookings 
+		WHERE status != 'cancelled'`
+
+	err := db.QueryRow(query).Scan(&stats.TotalRevenue, &stats.TotalBookings, &stats.ActiveBookings)
+	if err != nil {
+		http.Error(w, "Stats error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
+}
+
+// Handler for inquiries
+func handleInquiry(w http.ResponseWriter, r *http.Request) {
+	var inq Inquiry
+	json.NewDecoder(r.Body).Decode(&inq)
+	// In a real app, you'd save this to a 'inquiries' table
+	fmt.Printf("New Inquiry from %s: %s\n", inq.Name, inq.Message)
+	w.WriteHeader(http.StatusCreated)
 }
