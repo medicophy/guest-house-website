@@ -18,8 +18,11 @@ const geistMono = Geist_Mono({
 
 
 export const metadata: Metadata = {
-  title: "Residential Inn | Premium Living",
-  description: "High Impact Guest House Solutions",
+  title: "The White Veranda | Guest House Islamabad",
+  description: "Experience premium comfort and modern heritage in the heart of Islamabad.",
+  icons: {
+    icon: "/logo.png", // This also updates the small favicon in the tab
+  },
 };
 
 export default function RootLayout({

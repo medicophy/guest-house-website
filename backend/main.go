@@ -29,7 +29,6 @@ type Booking struct {
 	TotalPrice float64 `json:"total_price"`
 	Status     string  `json:"status"`
 }
-
 type DashboardStats struct {
 	TotalRevenue   float64 `json:"total_revenue"`
 	TotalBookings  int     `json:"total_bookings"`
