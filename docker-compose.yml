@@ -1,0 +1,57 @@
+services:
+  # --- DATABASE SERVICE ---
+  db:
+    image: postgres:15-alpine
+    container_name: white-veranda-db
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=159263
+      - POSTGRES_DB=guest_house_web
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d guesthouse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- BACKEND SERVICE (Go 1.25.4) ---
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: white-veranda-api
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - POSTGRES_PASSWORD=159263
+      - POSTGRES_DB=guest_house_web
+      - PORT=5000
+    ports:
+      - "5000:5000"
+
+  # --- FRONTEND SERVICE (Next.js) ---
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: white-veranda-ui
+    restart: always
+    depends_on:
+      - backend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:5000
+    ports:
+      - "5500:5500"
+
+# --- PERSISTENT STORAGE ---
+volumes:
+  pgdata:
